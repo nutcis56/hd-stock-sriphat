@@ -5,9 +5,11 @@ dotenv.config({ path: ".env.local" });
 async function main() {
   const { default: prisma } = await import("../lib/prisma");
 
-  const [products, staff, transactions, stockTotals] = await prisma.$transaction([
+  const [products, staff, users, admins, transactions, stockTotals] = await prisma.$transaction([
     prisma.product.count(),
     prisma.staff.count(),
+    prisma.user.count(),
+    prisma.user.count({ where: { role: "ADMIN" } }),
     prisma.transaction.count(),
     prisma.product.aggregate({
       _sum: {
@@ -21,6 +23,8 @@ async function main() {
   console.log({
     products,
     staff,
+    users,
+    admins,
     transactions,
     stockPpk: stockTotals._sum.stockPpk?.toString() ?? "0",
     stockSri: stockTotals._sum.stockSri?.toString() ?? "0",

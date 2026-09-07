@@ -48,10 +48,6 @@ export function Menu({ open, onNavigate }: { open: boolean; onNavigate: () => vo
       </nav>
 
       <div className="sidebar-bottom">
-        <div className="sidebar-support">
-          <Icon path="M12 17h.01M9.1 9a3 3 0 1 1 4.8 2.4c-1.1.8-1.9 1.3-1.9 2.6M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          <div><strong>ต้องการความช่วยเหลือ?</strong><span>ติดต่อผู้ดูแลระบบ</span></div>
-        </div>
         <div className="sidebar-version">VERSION 1.0.0</div>
       </div>
     </aside>

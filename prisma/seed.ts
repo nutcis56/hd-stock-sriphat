@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { hash } from "bcryptjs";
 
 dotenv.config({ path: ".env.local" });
 
@@ -30,6 +31,17 @@ const products = [
 async function main() {
   const { default: prisma } = await import("../lib/prisma");
 
+  const adminUsername = process.env.SEED_ADMIN_USERNAME?.trim().toLowerCase();
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+
+  if (!adminUsername || !adminPassword) {
+    throw new Error("SEED_ADMIN_USERNAME and SEED_ADMIN_PASSWORD are required in .env.local");
+  }
+
+  if (adminPassword.length < 8) {
+    throw new Error("SEED_ADMIN_PASSWORD must contain at least 8 characters");
+  }
+
   await prisma.$transaction(
     products.map((product) =>
       prisma.product.upsert({
@@ -53,10 +65,32 @@ async function main() {
   const total = await prisma.product.count();
   console.log(`Seeded ${products.length} products. Database now has ${total} products.`);
 
+  const passwordHash = await hash(adminPassword, 12);
+  await prisma.user.upsert({
+    where: { username: adminUsername },
+    create: {
+      username: adminUsername,
+      passwordHash,
+      displayName: process.env.SEED_ADMIN_DISPLAY_NAME?.trim() || "ผู้ดูแลระบบ",
+      position: process.env.SEED_ADMIN_POSITION?.trim() || null,
+      role: "ADMIN",
+      isActive: true,
+      mustChangePassword: true,
+    },
+    update: {
+      displayName: process.env.SEED_ADMIN_DISPLAY_NAME?.trim() || "ผู้ดูแลระบบ",
+      position: process.env.SEED_ADMIN_POSITION?.trim() || null,
+      role: "ADMIN",
+      isActive: true,
+    },
+  });
+
+  console.log("Admin user is ready.");
+
   await prisma.$disconnect();
 }
 
 main().catch((error) => {
-  console.error("Product seed failed", error);
+  console.error("Database seed failed", error);
   process.exitCode = 1;
 });

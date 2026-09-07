@@ -35,9 +35,8 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
 
       <div className="admin-header-actions">
         <div className="database-status">
-          <span className="live-dot" />
           <div>
-            <strong>admin</strong>
+            <strong></strong>
             <small></small>
           </div>
         </div>

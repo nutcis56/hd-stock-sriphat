@@ -28,6 +28,11 @@ enum TransactionType {
   ADJUST
 }
 
+enum UserRole {
+  ADMIN
+  USER
+}
+
 model Product {
   sku          String        @id
   name         String
@@ -60,6 +65,26 @@ model Staff {
   @@index([isActive])
 }
 
+model User {
+  id                 String        @id @default(cuid())
+  username           String        @unique
+  passwordHash       String
+  displayName        String
+  position           String?
+  role               UserRole      @default(USER)
+  isActive           Boolean       @default(true)
+  mustChangePassword Boolean       @default(true)
+  failedLoginCount   Int           @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  transactions       Transaction[]
+
+  @@index([isActive])
+  @@index([role])
+}
+
 model Transaction {
   id            String          @id @default(cuid())
   type          TransactionType
@@ -68,17 +93,21 @@ model Transaction {
   toLocation    StockLocation?
   note          String?
   receiptUrl    String?
-  actorEmail    String?
+  actorUsername String
+  actorName     String
   stockPpkAfter Decimal?        @db.Decimal(14, 2)
   stockSriAfter Decimal?        @db.Decimal(14, 2)
   createdAt     DateTime        @default(now())
 
-  productSku String
-  product    Product @relation(fields: [productSku], references: [sku], onUpdate: Cascade, onDelete: Restrict)
-  staffId    String?
-  staff      Staff?  @relation(fields: [staffId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  productSku  String
+  product     Product @relation(fields: [productSku], references: [sku], onUpdate: Cascade, onDelete: Restrict)
+  staffId     String?
+  staff       Staff?  @relation(fields: [staffId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  actorUserId String
+  actorUser   User    @relation(fields: [actorUserId], references: [id], onUpdate: Cascade, onDelete: Restrict)
 
   @@index([productSku, createdAt])
   @@index([staffId, createdAt])
+  @@index([actorUserId, createdAt])
   @@index([type, createdAt])
 }
