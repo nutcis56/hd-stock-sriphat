@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StaffRole {
+  RN
+  PN
+  ADMIN
+  OTHER
+}
+
+enum StockLocation {
+  PPK
+  SRI
+  EXTERNAL
+}
+
+enum TransactionType {
+  RECEIVE_PPK
+  RECEIVE_SRI
+  TRANSFER
+  USE_SRI
+  ADJUST
+}
+
+model Product {
+  sku          String        @id
+  name         String
+  unit         String
+  packSize     Decimal       @default(1) @db.Decimal(14, 2)
+  stockPpk     Decimal       @default(0) @db.Decimal(14, 2)
+  stockSri     Decimal       @default(0) @db.Decimal(14, 2)
+  reorderPoint Decimal       @default(0) @db.Decimal(14, 2)
+  sourceNote   String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model Staff {
+  id           String        @id @default(cuid())
+  name         String
+  role         StaffRole     @default(OTHER)
+  email        String?       @unique
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model Transaction {
+  id            String          @id @default(cuid())
+  type          TransactionType
+  quantity      Decimal         @db.Decimal(14, 2)
+  fromLocation  StockLocation?
+  toLocation    StockLocation?
+  note          String?
+  receiptUrl    String?
+  actorEmail    String?
+  stockPpkAfter Decimal?        @db.Decimal(14, 2)
+  stockSriAfter Decimal?        @db.Decimal(14, 2)
+  createdAt     DateTime        @default(now())
+
+  productSku String
+  product    Product @relation(fields: [productSku], references: [sku], onUpdate: Cascade, onDelete: Restrict)
+  staffId    String?
+  staff      Staff?  @relation(fields: [staffId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+
+  @@index([productSku, createdAt])
+  @@index([staffId, createdAt])
+  @@index([type, createdAt])
+}
