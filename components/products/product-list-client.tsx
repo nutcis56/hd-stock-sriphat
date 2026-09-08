@@ -2,7 +2,7 @@
 
 import { Icon } from "@/components/layout/icon";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 export type ProductListItem = {
   sku: string;
@@ -16,13 +16,28 @@ export type ProductListItem = {
   updatedAt: string;
 };
 
-export default function ProductListClient({ products }: { products: ProductListItem[] }) {
+export default function ProductListClient({
+  products,
+  showReceiveSuccess = false,
+}: {
+  products: ProductListItem[];
+  showReceiveSuccess?: boolean;
+}) {
   const router = useRouter();
+  const [successToastOpen, setSuccessToastOpen] = useState(showReceiveSuccess);
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("ALL");
   const [isPending, startTransition] = useTransition();
   const number = useMemo(() => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }), []);
   const date = useMemo(() => new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }), []);
+
+  useEffect(() => {
+    if (!showReceiveSuccess) return;
+
+    window.history.replaceState(window.history.state, "", "/products");
+    const timer = window.setTimeout(() => setSuccessToastOpen(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [showReceiveSuccess]);
 
   const filtered = products.filter((product) => {
     const matchesSearch = `${product.sku} ${product.name}`.toLowerCase().includes(query.toLowerCase().trim());
@@ -45,6 +60,19 @@ export default function ProductListClient({ products }: { products: ProductListI
 
   return (
     <section className="product-page">
+      {successToastOpen && (
+        <div className="toast toast-success" role="status" aria-live="polite">
+          <span aria-hidden="true">✓</span>
+          <strong>รับสินค้าเข้าเรียบร้อยแล้ว</strong>
+          <button
+            type="button"
+            aria-label="ปิดข้อความแจ้งเตือน"
+            onClick={() => setSuccessToastOpen(false)}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div className="content-heading">
         <div>
           <span className="eyebrow">INVENTORY MANAGEMENT</span>

@@ -5,7 +5,12 @@ import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProductPage() {
+export default async function ProductPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ toast?: string }>;
+}) {
+  const { toast } = await searchParams;
   const records = await prisma.product.findMany({
     where: { isActive: true },
     orderBy: [{ name: "asc" }, { sku: "asc" }],
@@ -23,5 +28,10 @@ export default async function ProductPage() {
     updatedAt: product.updatedAt.toISOString(),
   }));
 
-  return <ProductListClient products={products} />;
+  return (
+    <ProductListClient
+      products={products}
+      showReceiveSuccess={toast === "receive-success"}
+    />
+  );
 }
