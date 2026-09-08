@@ -23,6 +23,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               ? {
                   displayName: session.user.name ?? session.user.username,
                   position: session.user.position,
+                  role: session.user.role,
                 }
               : null
           }

@@ -12,9 +12,18 @@ const menuItems = [
   { href: "/usage", label: "ตัดใช้ศรีพัฒน์", path: "M7 7h10l-1 13H8L7 7Zm-2 0h14M9 7V4h6v3" },
   { href: "/calculator", label: "คำนวณจำนวนเบิก", path: "M6 3h12v18H6zM9 7h6M9 12h1m4 0h1m-6 4h1m4 0h1" },
   { href: "/transactions", label: "ประวัติรายการ", path: "M4 12a8 8 0 1 0 2.3-5.7L4 8.5M4 4v4.5h4.5M12 8v5l3 2" },
+  { href: "/admin/users", label: "ผู้ใช้งานระบบ", path: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
 ];
 
-export function Menu({ open, onNavigate }: { open: boolean; onNavigate: () => void }) {
+export function Menu({
+  open,
+  role,
+  onNavigate,
+}: {
+  open: boolean;
+  role?: "ADMIN" | "USER";
+  onNavigate: () => void;
+}) {
   const pathname = usePathname();
 
   return (
@@ -29,8 +38,9 @@ export function Menu({ open, onNavigate }: { open: boolean; onNavigate: () => vo
 
       <div className="sidebar-section-label">ระบบคลังสินค้า</div>
       <nav className="sidebar-menu" aria-label="เมนูหลัก">
-        {menuItems.map((item) => {
-          const active = pathname === item.href;
+        {menuItems.filter((item) => item.href !== "/admin/users" || role === "ADMIN").map((item) => {
+          const active =
+            pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.href}

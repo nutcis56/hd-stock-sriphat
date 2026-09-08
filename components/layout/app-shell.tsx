@@ -11,6 +11,7 @@ type AppShellProps = {
   user: {
     displayName: string;
     position: string | null;
+    role: "ADMIN" | "USER";
   } | null;
 };
 
@@ -22,7 +23,11 @@ export function AppShell({ children, user }: AppShellProps) {
 
   return (
     <div className="admin-shell">
-      <Menu open={menuOpen} onNavigate={() => setMenuOpen(false)} />
+      <Menu
+        open={menuOpen}
+        role={user?.role}
+        onNavigate={() => setMenuOpen(false)}
+      />
       {menuOpen && <button className="sidebar-overlay" type="button" aria-label="ปิดเมนู" onClick={() => setMenuOpen(false)} />}
       <div className="admin-main">
         <Header onMenuClick={() => setMenuOpen(true)} user={user} />
