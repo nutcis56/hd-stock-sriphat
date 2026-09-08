@@ -5,15 +5,21 @@ import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReceivePage() {
+export default async function ReceivePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ product?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  const { product } = await searchParams;
 
   const products = await prisma.product.findMany({ where: { isActive: true }, select: { sku: true, name: true, unit: true }, orderBy: { name: "asc" } });
   return (
     <OperationFormClient
       mode="receive"
       products={products}
+      initialProductSku={product}
       actor={{
         id: session.user.id,
         username: session.user.username,

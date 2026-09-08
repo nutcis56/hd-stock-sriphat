@@ -51,9 +51,11 @@ export default function OperationFormClient({
   mode,
   products,
   actor,
+  initialProductSku,
 }: {
   mode: Mode;
   products: ProductOption[];
+  initialProductSku?: string;
   actor?: {
     id: string;
     username: string;
@@ -119,7 +121,10 @@ export default function OperationFormClient({
                   : usageAction
             }
           >
-            <ProductCombobox products={products} />
+            <ProductCombobox
+              products={products}
+              initialProductSku={initialProductSku}
+            />
             {mode === "receive" && (
               <label className="form-field">
                 <span>ปลายทางรับเข้า</span>
@@ -230,10 +235,20 @@ export default function OperationFormClient({
   );
 }
 
-function ProductCombobox({ products }: { products: ProductOption[] }) {
+function ProductCombobox({
+  products,
+  initialProductSku,
+}: {
+  products: ProductOption[];
+  initialProductSku?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [selectedSku, setSelectedSku] = useState("");
+  const [selectedSku, setSelectedSku] = useState(() =>
+    products.some((product) => product.sku === initialProductSku)
+      ? initialProductSku ?? ""
+      : "",
+  );
   const comboboxRef = useRef<HTMLDivElement>(null);
   const selectedProduct = products.find(
     (product) => product.sku === selectedSku,

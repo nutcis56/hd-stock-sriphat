@@ -18,6 +18,12 @@ export type ProductListItem = {
   updatedAt: string;
 };
 
+type ProductActionTarget = {
+  product: ProductListItem;
+  top: number;
+  right: number;
+};
+
 export default function ProductListClient({
   products,
   successToast,
@@ -40,6 +46,7 @@ export default function ProductListClient({
     return { tone: "success", message: messages[successToast] };
   });
   const [deleteTarget, setDeleteTarget] = useState<ProductListItem | null>(null);
+  const [actionTarget, setActionTarget] = useState<ProductActionTarget | null>(null);
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("ALL");
   const [refreshPending, startRefreshTransition] = useTransition();
@@ -54,6 +61,33 @@ export default function ProductListClient({
     const timer = window.setTimeout(() => setToast(null), 4000);
     return () => window.clearTimeout(timer);
   }, [successToast]);
+
+  useEffect(() => {
+    if (!actionTarget) return;
+
+    function closeActions(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-product-actions]")) return;
+      setActionTarget(null);
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setActionTarget(null);
+    }
+    function closeOnViewportChange() {
+      setActionTarget(null);
+    }
+
+    document.addEventListener("pointerdown", closeActions);
+    document.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", closeOnViewportChange);
+    window.addEventListener("scroll", closeOnViewportChange, true);
+    return () => {
+      document.removeEventListener("pointerdown", closeActions);
+      document.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", closeOnViewportChange);
+      window.removeEventListener("scroll", closeOnViewportChange, true);
+    };
+  }, [actionTarget]);
 
   const filtered = products.filter((product) => {
     const matchesSearch = `${product.sku} ${product.name}`.toLowerCase().includes(query.toLowerCase().trim());
@@ -82,6 +116,22 @@ export default function ProductListClient({
       setDeleteTarget(null);
       setToast({ tone: result.status, message: result.message });
       if (result.status === "success") router.refresh();
+    });
+  }
+
+  function toggleProductActions(product: ProductListItem, button: HTMLButtonElement) {
+    if (actionTarget?.product.sku === product.sku) {
+      setActionTarget(null);
+      return;
+    }
+    const rect = button.getBoundingClientRect();
+    const menuHeight = 190;
+    setActionTarget({
+      product,
+      top: rect.bottom + menuHeight > window.innerHeight
+        ? Math.max(8, rect.top - menuHeight)
+        : rect.bottom + 6,
+      right: Math.max(8, window.innerWidth - rect.right),
     });
   }
 
@@ -149,7 +199,7 @@ export default function ProductListClient({
         </div>
         <div className="table-scroll">
           <table>
-            <thead><tr><th>สินค้า</th><th>หน่วย</th><th className="right">บรรจุ/กล่อง</th><th className="right">พฤกพลัง</th><th className="right">ศรีพัฒน์</th><th className="right">จุดเตือน</th><th>สถานะ</th><th>อัปเดต</th>{canManage && <th className="right">จัดการ</th>}</tr></thead>
+            <thead><tr><th>สินค้า</th><th>หน่วย</th><th className="right">บรรจุ/กล่อง</th><th className="right">พฤกพลัง</th><th className="right">ศรีพัฒน์</th><th className="right">จุดเตือน</th><th>สถานะ</th><th>อัปเดต</th><th className="right">ทำรายการ</th>{canManage && <th className="right">จัดการ</th>}</tr></thead>
             <tbody>{filtered.map((product) => {
               const hasAlert = product.reorderPoint > 0 && product.stockSri <= product.reorderPoint;
               return (
@@ -162,6 +212,20 @@ export default function ProductListClient({
                   <td className="right muted-number">{number.format(product.reorderPoint)}</td>
                   <td><span className={`status-pill ${hasAlert ? "low" : "enough"}`}><i />{hasAlert ? "ควรตรวจสอบ" : "เพียงพอ"}</span></td>
                   <td><span className="updated">{date.format(new Date(product.updatedAt))}</span></td>
+                  <td>
+                    <div className="product-action-cell" data-product-actions>
+                      <button
+                        className="product-action-trigger"
+                        type="button"
+                        aria-haspopup="menu"
+                        aria-expanded={actionTarget?.product.sku === product.sku}
+                        onClick={(event) => toggleProductActions(product, event.currentTarget)}
+                      >
+                        <span>ทำรายการ</span>
+                        <Icon path="m8 10 4 4 4-4" />
+                      </button>
+                    </div>
+                  </td>
                   {canManage && (
                     <td>
                       <div className="product-manage-actions">
@@ -181,6 +245,40 @@ export default function ProductListClient({
           {filtered.length === 0 && <div className="empty-state">ไม่พบรายการที่ค้นหา</div>}
         </div>
       </article>
+      {actionTarget && (
+        <div
+          className="product-action-layer"
+          data-product-actions
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setActionTarget(null);
+          }}
+        >
+          <nav
+            className="product-action-menu"
+            role="menu"
+            aria-label={`ทำรายการสินค้า ${actionTarget.product.name}`}
+            style={{ top: actionTarget.top, right: actionTarget.right }}
+          >
+            <div className="product-action-menu-heading">
+              <strong>{actionTarget.product.name}</strong>
+              <small>SKU {actionTarget.product.sku}</small>
+            </div>
+            <Link role="menuitem" href={`/receive?product=${encodeURIComponent(actionTarget.product.sku)}`}>
+              <Icon path="M12 3v12m-4-4 4 4 4-4M5 19h14" />
+              <span><strong>รับสินค้าเข้า</strong><small>เพิ่มยอดเข้าคลัง</small></span>
+            </Link>
+            <Link role="menuitem" href={`/transfer?product=${encodeURIComponent(actionTarget.product.sku)}`}>
+              <Icon path="M5 7h14m-4-4 4 4-4 4M19 17H5m4-4-4 4 4 4" />
+              <span><strong>โอนสินค้า</strong><small>พฤกพลัง → ศรีพัฒน์</small></span>
+            </Link>
+            <Link role="menuitem" href={`/usage?product=${encodeURIComponent(actionTarget.product.sku)}`}>
+              <Icon path="M4 7h16M7 7l1 13h8l1-13M9 4h6M10 11v5m4-5v5" />
+              <span><strong>ตัดใช้สินค้า</strong><small>ตัดยอดจากศรีพัฒน์</small></span>
+            </Link>
+            <button className="product-action-cancel" type="button" onClick={() => setActionTarget(null)}>ยกเลิก</button>
+          </nav>
+        </div>
+      )}
       {deleteTarget && (
         <div className="confirm-overlay" role="presentation" onMouseDown={(event) => {
           if (event.target === event.currentTarget && !deletePending) setDeleteTarget(null);
