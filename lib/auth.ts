@@ -6,7 +6,7 @@ import prisma from "@/lib/prisma";
 const MAX_FAILED_LOGINS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000;
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   secret: process.env.AUTH_SECRET,
   trustHost: true,
   pages: {
@@ -79,12 +79,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (request.nextUrl.pathname === "/login") return true;
       return Boolean(session?.user);
     },
-    jwt({ token, user }) {
+    jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.username = user.username;
         token.role = user.role;
         token.position = user.position;
+      }
+      if (
+        trigger === "update" &&
+        typeof session?.user?.name === "string" &&
+        session.user.name.trim()
+      ) {
+        token.name = session.user.name.trim();
       }
       return token;
     },

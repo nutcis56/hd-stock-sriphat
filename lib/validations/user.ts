@@ -47,3 +47,14 @@ export const updateUserSchema = z
     path: ["confirm_password"],
     message: "ยืนยันรหัสผ่านไม่ตรงกับรหัสผ่าน",
   });
+
+export const updateOwnProfileSchema = z
+  .object({
+    name: profileFields.name,
+    password: z.union([z.literal(""), passwordSchema]),
+    confirm_password: z.string(),
+  })
+  .refine((data) => data.password === data.confirm_password, {
+    path: ["confirm_password"],
+    message: "ยืนยันรหัสผ่านไม่ตรงกับรหัสผ่าน",
+  });

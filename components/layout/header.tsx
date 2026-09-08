@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { Icon } from "./icon";
@@ -12,6 +13,7 @@ const pageTitles: Record<string, string> = {
   "/usage": "ตัดใช้ศรีพัฒน์",
   "/calculator": "คำนวณจำนวนเบิก",
   "/transactions": "ประวัติรายการ",
+  "/profile/edit": "แก้ไขโปรไฟล์",
 };
 
 type HeaderProps = {
@@ -110,6 +112,14 @@ export function Header({ onMenuClick, user }: HeaderProps) {
                 <strong>{displayName}</strong>
                 <small>{user?.position || "ผู้ใช้งานระบบ"}</small>
               </div>
+              <Link
+                href="/profile/edit"
+                role="menuitem"
+                onClick={() => setUserMenuOpen(false)}
+              >
+                <Icon path="M15.232 5.232l3.536 3.536M4 20h4l10.768-10.768a2.5 2.5 0 0 0-3.536-3.536L4.464 16.464 4 20Z" />
+                แก้ไขโปรไฟล์
+              </Link>
               <button
                 type="button"
                 role="menuitem"
