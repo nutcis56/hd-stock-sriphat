@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Icon } from "@/components/layout/icon";
 import { deleteUser } from "@/lib/actions/users";
@@ -29,6 +30,7 @@ export default function UserListClient({
   currentUserId: string;
   successToast?: "created" | "updated";
 }) {
+  const router = useRouter();
   const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
   const [toast, setToast] = useState<ToastState>(
     successToast
@@ -67,12 +69,13 @@ export default function UserListClient({
     startTransition(async () => {
       const result = await deleteUser(userId);
       setSelectedUser(null);
+      if (result.status === "success") router.refresh();
       setToast({
         tone: result.status,
         title:
           result.status === "success"
-            ? "ลบผู้ใช้งานเรียบร้อยแล้ว"
-            : "ไม่สามารถลบผู้ใช้งานได้",
+            ? "ปิดใช้งานเรียบร้อยแล้ว"
+            : "ไม่สามารถปิดใช้งานได้",
         message: result.message,
       });
     });
@@ -144,11 +147,11 @@ export default function UserListClient({
                       </Link>
                       <button
                         type="button"
-                        aria-label={`ลบ ${user.displayName}`}
+                        aria-label={`ปิดใช้งาน ${user.displayName}`}
                         title={
                           user.id === currentUserId
                             ? "ไม่สามารถลบบัญชีที่กำลังใช้งาน"
-                            : "ลบ"
+                            : "ปิดใช้งาน"
                         }
                         disabled={user.id === currentUserId}
                         onClick={() => setSelectedUser(user)}
@@ -176,10 +179,11 @@ export default function UserListClient({
             <span className="confirm-icon" aria-hidden="true">
               <Icon path="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
             </span>
-            <h3 id="delete-user-title">ยืนยันการลบผู้ใช้งาน</h3>
+            <h3 id="delete-user-title">ยืนยันการปิดใช้งาน</h3>
             <p id="delete-user-description">
-              ต้องการลบ <strong>{selectedUser.displayName}</strong> (@
-              {selectedUser.username}) ออกจากระบบใช่หรือไม่
+              ต้องการปิดใช้งาน <strong>{selectedUser.displayName}</strong> (@
+              {selectedUser.username}) ใช่หรือไม่ ผู้ใช้นี้จะเข้าสู่ระบบไม่ได้
+              แต่ประวัติรายการเดิมจะยังอยู่ครบ
             </p>
             <div className="confirm-actions">
               <button
@@ -196,7 +200,7 @@ export default function UserListClient({
                 disabled={isPending}
                 onClick={confirmDelete}
               >
-                {isPending ? "กำลังลบ..." : "ยืนยันลบ"}
+                {isPending ? "กำลังปิดใช้งาน..." : "ยืนยันปิดใช้งาน"}
               </button>
             </div>
           </div>

@@ -18,7 +18,10 @@ export default async function UsersPage({
 
   const { toast } = await searchParams;
   const records = await prisma.user.findMany({
-    where: { username: { not: "admin" } },
+    where: {
+      username: { not: "admin" },
+      isActive: true,
+    },
     select: {
       id: true,
       username: true,

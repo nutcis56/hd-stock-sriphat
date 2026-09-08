@@ -181,9 +181,11 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 
   const target = await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true },
+    select: { role: true, isActive: true },
   });
-  if (!target) return { status: "error", message: "ไม่พบผู้ใช้งานนี้ในระบบ" };
+  if (!target?.isActive) {
+    return { status: "error", message: "ไม่พบผู้ใช้งาน หรือบัญชีถูกปิดใช้งานแล้ว" };
+  }
 
   if (target.role === "ADMIN") {
     const adminCount = await prisma.user.count({
@@ -195,17 +197,18 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
   }
 
   try {
-    await prisma.user.delete({ where: { id: userId } });
-  } catch (error) {
-    if (isPrismaErrorWithCode(error, "P2003")) {
-      return {
-        status: "error",
-        message: "ผู้ใช้งานมีประวัติรายการ จึงไม่สามารถลบออกจากฐานข้อมูลได้",
-      };
-    }
-    return { status: "error", message: "ลบผู้ใช้งานไม่สำเร็จ กรุณาลองอีกครั้ง" };
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        isActive: false,
+        failedLoginCount: 0,
+        lockedUntil: null,
+      },
+    });
+  } catch {
+    return { status: "error", message: "ปิดใช้งานผู้ใช้ไม่สำเร็จ กรุณาลองอีกครั้ง" };
   }
 
   revalidatePath("/admin/users");
-  return { status: "success", message: "ลบผู้ใช้งานเรียบร้อยแล้ว" };
+  return { status: "success", message: "ปิดใช้งานผู้ใช้เรียบร้อยแล้ว" };
 }
