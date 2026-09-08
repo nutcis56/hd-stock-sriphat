@@ -37,6 +37,8 @@ export default async function ProductPage({
           ? "receive"
           : toast === "transfer-success"
             ? "transfer"
+            : toast === "usage-success"
+              ? "usage"
             : undefined
       }
     />

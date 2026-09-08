@@ -1,15 +1,9 @@
 "use client";
 
-import {
-  FormEvent,
-  useActionState,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { receiveStock } from "@/lib/actions/receive";
 import { transferStock } from "@/lib/actions/transfer";
+import { useStock } from "@/lib/actions/usage";
 
 type ProductOption = { sku: string; name: string; unit: string };
 type Mode = "receive" | "transfer" | "usage";
@@ -44,12 +38,12 @@ const content = {
   },
   usage: {
     panelTitle: "ตัดใช้จาก Stock ศรีพัฒน์",
-    title: "ตัดใช้จาก Stock ศรีพัฒน์",
-    subtitle: "บันทึกการเบิกใช้ภายในหน่วยงาน",
+    title: "",
+    subtitle: "",
     quantity: "จำนวนที่ใช้ (หน่วยหลัก)",
     staff: "ผู้บันทึก",
     action: "ยืนยันตัดใช้จากศรีพัฒน์",
-    tone: "red",
+    tone: "purple",
   },
 } as const;
 
@@ -67,7 +61,6 @@ export default function OperationFormClient({
     position: string | null;
   };
 }) {
-  const [saved, setSaved] = useState(false);
   const [receiveState, receiveAction, receivePending] = useActionState(
     receiveStock,
     initialReceiveFormState,
@@ -76,15 +69,17 @@ export default function OperationFormClient({
     transferStock,
     initialReceiveFormState,
   );
+  const [, usageAction, usagePending] = useActionState(
+    useStock,
+    initialReceiveFormState,
+  );
   const labels = content[mode];
   const operationPending =
-    mode === "receive" ? receivePending : mode === "transfer" ? transferPending : false;
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 3000);
-  }
+    mode === "receive"
+      ? receivePending
+      : mode === "transfer"
+        ? transferPending
+        : usagePending;
 
   const error = mode === "receive" && receiveState.status === "error";
 
@@ -103,7 +98,7 @@ export default function OperationFormClient({
             ? "receive-form-layout"
             : mode === "transfer"
               ? "transfer-form-layout"
-              : undefined
+              : "usage-form-layout"
         }
       >
         <article
@@ -121,32 +116,10 @@ export default function OperationFormClient({
                 ? receiveAction
                 : mode === "transfer"
                   ? transferAction
-                  : undefined
+                  : usageAction
             }
-            onSubmit={mode === "usage" ? submit : undefined}
           >
-            {mode === "receive" || mode === "transfer" ? (
-              <ProductCombobox products={products} />
-            ) : (
-              <label className="form-field wide">
-                <span>สินค้า</span>
-                <select
-                  className="control"
-                  name="productSku"
-                  required
-                  defaultValue=""
-                >
-                  <option value="" disabled>
-                    — เลือกสินค้า —
-                  </option>
-                  {products.map((product) => (
-                    <option key={product.sku} value={product.sku}>
-                      {product.name} ({product.unit})
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
+            <ProductCombobox products={products} />
             {mode === "receive" && (
               <label className="form-field">
                 <span>ปลายทางรับเข้า</span>
@@ -170,39 +143,25 @@ export default function OperationFormClient({
             </label>
             <label className="form-field">
               <span>{labels.staff}</span>
-              {mode === "receive" || mode === "transfer" ? (
+              <input
+                className="control readonly-control"
+                value={
+                  actor
+                    ? `${actor.position || "ผู้ใช้งานระบบ"} • ${actor.displayName}`
+                    : ""
+                }
+                readOnly
+                aria-readonly="true"
+              />
+              {actor && (
                 <>
+                  <input type="hidden" name="actorUserId" value={actor.id} />
                   <input
-                    className="control readonly-control"
-                    value={
-                      actor
-                        ? `${actor.position || "ผู้ใช้งานระบบ"} • ${actor.displayName}`
-                        : ""
-                    }
-                    readOnly
-                    aria-readonly="true"
+                    type="hidden"
+                    name="actorUsername"
+                    value={actor.username}
                   />
-                  {actor && (
-                    <>
-                      <input
-                        type="hidden"
-                        name="actorUserId"
-                        value={actor.id}
-                      />
-                      <input
-                        type="hidden"
-                        name="actorUsername"
-                        value={actor.username}
-                      />
-                    </>
-                  )}
                 </>
-              ) : (
-                <input
-                  className="control"
-                  required
-                  placeholder="ชื่อผู้ดำเนินการ"
-                />
               )}
             </label>
             <label className="form-field wide">
@@ -246,19 +205,18 @@ export default function OperationFormClient({
               <span className="from">พฤกพลัง − จำนวนโอน</span>
               <span className="to">ศรีพัฒน์ + จำนวนโอน</span>
             </div>
+          </aside>
+        )}
+        {mode === "usage" && (
+          <aside className="panel usage-guidance-card">
+            <h2>ข้อควรทราบ</h2>
             <p>
-              ระบบล็อกธุรกรรมขณะบันทึก ป้องกันหลายเครื่องแก้ยอดพร้อมกัน
-              และไม่อนุญาตให้โอนเกินยอดที่มี
+              รายการนี้จะลบจากยอดศรีพัฒน์เท่านั้น ไม่กระทบ Stock พฤกพลัง
+              และไม่อนุญาตให้ยอดติดลบ
             </p>
           </aside>
         )}
       </div>
-      {saved && mode === "usage" && (
-        <div className="toast">
-          <span>✓</span>
-          ตรวจสอบฟอร์มเรียบร้อยแล้ว
-        </div>
-      )}
       {error && (
         <div className="toast toast-error" role="alert" aria-live="assertive">
           <span aria-hidden="true">!</span>

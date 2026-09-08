@@ -21,7 +21,7 @@ export default function ProductListClient({
   successToast,
 }: {
   products: ProductListItem[];
-  successToast?: "receive" | "transfer";
+  successToast?: "receive" | "transfer" | "usage";
 }) {
   const router = useRouter();
   const [successToastOpen, setSuccessToastOpen] = useState(Boolean(successToast));
@@ -66,7 +66,9 @@ export default function ProductListClient({
           <strong>
             {successToast === "transfer"
               ? "โอนสินค้าเสร็จสิ้น"
-              : "รับสินค้าเข้าเรียบร้อยแล้ว"}
+              : successToast === "usage"
+                ? "ตัดใช้สินค้าจากศรีพัฒน์เรียบร้อยแล้ว"
+                : "รับสินค้าเข้าเรียบร้อยแล้ว"}
           </strong>
           <button
             type="button"
