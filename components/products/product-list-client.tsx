@@ -18,13 +18,13 @@ export type ProductListItem = {
 
 export default function ProductListClient({
   products,
-  showReceiveSuccess = false,
+  successToast,
 }: {
   products: ProductListItem[];
-  showReceiveSuccess?: boolean;
+  successToast?: "receive" | "transfer";
 }) {
   const router = useRouter();
-  const [successToastOpen, setSuccessToastOpen] = useState(showReceiveSuccess);
+  const [successToastOpen, setSuccessToastOpen] = useState(Boolean(successToast));
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("ALL");
   const [isPending, startTransition] = useTransition();
@@ -32,12 +32,12 @@ export default function ProductListClient({
   const date = useMemo(() => new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }), []);
 
   useEffect(() => {
-    if (!showReceiveSuccess) return;
+    if (!successToast) return;
 
     window.history.replaceState(window.history.state, "", "/products");
     const timer = window.setTimeout(() => setSuccessToastOpen(false), 4000);
     return () => window.clearTimeout(timer);
-  }, [showReceiveSuccess]);
+  }, [successToast]);
 
   const filtered = products.filter((product) => {
     const matchesSearch = `${product.sku} ${product.name}`.toLowerCase().includes(query.toLowerCase().trim());
@@ -63,7 +63,11 @@ export default function ProductListClient({
       {successToastOpen && (
         <div className="toast toast-success" role="status" aria-live="polite">
           <span aria-hidden="true">✓</span>
-          <strong>รับสินค้าเข้าเรียบร้อยแล้ว</strong>
+          <strong>
+            {successToast === "transfer"
+              ? "โอนสินค้าเสร็จสิ้น"
+              : "รับสินค้าเข้าเรียบร้อยแล้ว"}
+          </strong>
           <button
             type="button"
             aria-label="ปิดข้อความแจ้งเตือน"

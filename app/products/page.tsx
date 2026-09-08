@@ -30,8 +30,15 @@ export default async function ProductPage({
 
   return (
     <ProductListClient
+      key={toast ?? "products"}
       products={products}
-      showReceiveSuccess={toast === "receive-success"}
+      successToast={
+        toast === "receive-success"
+          ? "receive"
+          : toast === "transfer-success"
+            ? "transfer"
+            : undefined
+      }
     />
   );
 }

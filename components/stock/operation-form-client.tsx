@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { receiveStock } from "@/lib/actions/receive";
+import { transferStock } from "@/lib/actions/transfer";
 
 type ProductOption = { sku: string; name: string; unit: string };
 type Mode = "receive" | "transfer" | "usage";
@@ -24,6 +25,7 @@ const initialReceiveFormState: ReceiveFormState = {
 
 const content = {
   receive: {
+    panelTitle: "รับสินค้าเข้า Stock",
     title: "",
     subtitle: "",
     quantity: "จำนวนที่รับ (หน่วยหลัก)",
@@ -32,14 +34,16 @@ const content = {
     tone: "purple",
   },
   transfer: {
+    panelTitle: "ขนสินค้า พฤกพลัง → ศรีพัฒน์",
     title: "โอนสินค้าไปศรีพัฒน์",
     subtitle: "พฤกพลัง → ศรีพัฒน์",
     quantity: "จำนวนที่ขน (หน่วยหลัก)",
-    staff: "ผู้ดำเนินการ",
+    staff: "ผู้ดำเนินการ / ผู้บันทึก",
     action: "ยืนยันโอนระหว่าง Stock",
     tone: "purple",
   },
   usage: {
+    panelTitle: "ตัดใช้จาก Stock ศรีพัฒน์",
     title: "ตัดใช้จาก Stock ศรีพัฒน์",
     subtitle: "บันทึกการเบิกใช้ภายในหน่วยงาน",
     quantity: "จำนวนที่ใช้ (หน่วยหลัก)",
@@ -68,7 +72,13 @@ export default function OperationFormClient({
     receiveStock,
     initialReceiveFormState,
   );
+  const [, transferAction, transferPending] = useActionState(
+    transferStock,
+    initialReceiveFormState,
+  );
   const labels = content[mode];
+  const operationPending =
+    mode === "receive" ? receivePending : mode === "transfer" ? transferPending : false;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -87,132 +97,163 @@ export default function OperationFormClient({
           <p>{labels.subtitle}</p>
         </div>
       </div>
-      <div className={mode === "receive" ? "receive-form-layout" : undefined}>
-      <article className={`panel form-panel operation-form-panel ${mode}-form-panel`}>
-        <div className="panel-heading">
-          <div>
-            <h2>รับสินค้าเข้า Stock</h2>
-          </div>
-        </div>
-        <form
-          className="form-grid"
-          action={mode === "receive" ? receiveAction : undefined}
-          onSubmit={mode === "receive" ? undefined : submit}
+      <div
+        className={
+          mode === "receive"
+            ? "receive-form-layout"
+            : mode === "transfer"
+              ? "transfer-form-layout"
+              : undefined
+        }
+      >
+        <article
+          className={`panel form-panel operation-form-panel ${mode}-form-panel`}
         >
-          {mode === "receive" ? (
-            <ProductCombobox products={products} />
-          ) : (
-            <label className="form-field wide">
-              <span>สินค้า</span>
-              <select
-                className="control"
-                name="productSku"
-                required
-                defaultValue=""
-              >
-                <option value="" disabled>
-                  — เลือกสินค้า —
-                </option>
-                {products.map((product) => (
-                  <option key={product.sku} value={product.sku}>
-                    {product.name} ({product.unit})
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {mode === "receive" && (
-            <label className="form-field">
-              <span>ปลายทางรับเข้า</span>
-              <select className="control" name="toLocation">
-                <option value="PPK">พฤกพลัง</option>
-                <option value="SRI">ศรีพัฒน์</option>
-              </select>
-            </label>
-          )}
-          <label className="form-field">
-            <span>{labels.quantity}</span>
-            <input
-              className="control"
-              type="number"
-              name="quantity"
-              min="0.01"
-              step="0.01"
-              required
-              placeholder="0"
-            />
-          </label>
-          <label className="form-field">
-            <span>{labels.staff}</span>
-            {mode === "receive" ? (
-              <>
-                <input
-                  className="control readonly-control"
-                  value={
-                    actor
-                      ? `${actor.position || "ผู้ใช้งานระบบ"} • ${actor.displayName}`
-                      : ""
-                  }
-                  readOnly
-                  aria-readonly="true"
-                />
-                {actor && (
-                  <>
-                    <input type="hidden" name="actorUserId" value={actor.id} />
-                    <input
-                      type="hidden"
-                      name="actorUsername"
-                      value={actor.username}
-                    />
-                  </>
-                )}
-              </>
+          <div className="panel-heading">
+            <div>
+              <h2>{labels.panelTitle}</h2>
+            </div>
+          </div>
+          <form
+            className="form-grid"
+            action={
+              mode === "receive"
+                ? receiveAction
+                : mode === "transfer"
+                  ? transferAction
+                  : undefined
+            }
+            onSubmit={mode === "usage" ? submit : undefined}
+          >
+            {mode === "receive" || mode === "transfer" ? (
+              <ProductCombobox products={products} />
             ) : (
+              <label className="form-field wide">
+                <span>สินค้า</span>
+                <select
+                  className="control"
+                  name="productSku"
+                  required
+                  defaultValue=""
+                >
+                  <option value="" disabled>
+                    — เลือกสินค้า —
+                  </option>
+                  {products.map((product) => (
+                    <option key={product.sku} value={product.sku}>
+                      {product.name} ({product.unit})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {mode === "receive" && (
+              <label className="form-field">
+                <span>ปลายทางรับเข้า</span>
+                <select className="control" name="toLocation">
+                  <option value="PPK">พฤกพลัง</option>
+                  <option value="SRI">ศรีพัฒน์</option>
+                </select>
+              </label>
+            )}
+            <label className="form-field">
+              <span>{labels.quantity}</span>
               <input
                 className="control"
+                type="number"
+                name="quantity"
+                min="0.01"
+                step="0.01"
                 required
-                placeholder="ชื่อผู้ดำเนินการ"
+                placeholder="0"
               />
+            </label>
+            <label className="form-field">
+              <span>{labels.staff}</span>
+              {mode === "receive" || mode === "transfer" ? (
+                <>
+                  <input
+                    className="control readonly-control"
+                    value={
+                      actor
+                        ? `${actor.position || "ผู้ใช้งานระบบ"} • ${actor.displayName}`
+                        : ""
+                    }
+                    readOnly
+                    aria-readonly="true"
+                  />
+                  {actor && (
+                    <>
+                      <input
+                        type="hidden"
+                        name="actorUserId"
+                        value={actor.id}
+                      />
+                      <input
+                        type="hidden"
+                        name="actorUsername"
+                        value={actor.username}
+                      />
+                    </>
+                  )}
+                </>
+              ) : (
+                <input
+                  className="control"
+                  required
+                  placeholder="ชื่อผู้ดำเนินการ"
+                />
+              )}
+            </label>
+            <label className="form-field wide">
+              <span>เลขที่ใบส่งของ / หมายเหตุ</span>
+              <textarea
+                className="control"
+                name="note"
+                rows={4}
+                placeholder="ระบุรายละเอียดเพิ่มเติม (ถ้ามี)"
+              />
+            </label>
+            {error && (
+              <p className="form-message error" role="alert">
+                {receiveState.message}
+              </p>
             )}
-          </label>
-          <label className="form-field wide">
-            <span>เลขที่ใบส่งของ / หมายเหตุ</span>
-            <textarea
-              className="control"
-              name="note"
-              rows={4}
-              placeholder="ระบุรายละเอียดเพิ่มเติม (ถ้ามี)"
-            />
-          </label>
-          {error && (
-            <p className="form-message error" role="alert">
-              {receiveState.message}
+            <button
+              className={`submit-button ${labels.tone}`}
+              type="submit"
+              disabled={operationPending}
+            >
+              {operationPending ? "กำลังบันทึก..." : labels.action}
+            </button>
+          </form>
+        </article>
+        {mode === "receive" && (
+          <aside className="panel receive-guidance-card">
+            <h2>หลักการทำงาน</h2>
+            <p>
+              สินค้าทั่วไปรับเข้าที่พฤกพลัง ส่วน Diasafe รับตรงเข้าศรีพัฒน์
+              ตามโครงสร้าง Stock ที่กำหนด พร้อมบันทึกผู้รับ เวลา
+              และรายละเอียดรายการลงใน Transaction Log
             </p>
-          )}
-          <button
-            className={`submit-button ${labels.tone}`}
-            type="submit"
-            disabled={receivePending}
-          >
-            {receivePending ? "กำลังบันทึก..." : labels.action}
-          </button>
-        </form>
-      </article>
-      {mode === "receive" && (
-        <aside className="panel receive-guidance-card">
-          <h2>หลักการทำงาน</h2>
-          <p>
-            สินค้าทั่วไปรับเข้าที่พฤกพลัง ส่วน Diasafe รับตรงเข้าศรีพัฒน์
-            ตามโครงสร้าง Stock ที่กำหนด พร้อมบันทึกผู้รับ เวลา
-            และรายละเอียดรายการลงใน Transaction Log
-          </p>
-          <small>
-            
-          </small>
-        </aside>
-      )}
+            <small></small>
+          </aside>
+        )}
+        {mode === "transfer" && (
+          <aside className="panel transfer-result-card">
+            <h2>ผลของรายการ</h2>
+            <div className="transfer-result-flow">
+              <span className="from">พฤกพลัง − จำนวนโอน</span>
+              <span className="to">ศรีพัฒน์ + จำนวนโอน</span>
+            </div>
+            <p>
+              ระบบล็อกธุรกรรมขณะบันทึก ป้องกันหลายเครื่องแก้ยอดพร้อมกัน
+              และไม่อนุญาตให้โอนเกินยอดที่มี
+            </p>
+          </aside>
+        )}
       </div>
-      {saved && (
+      {saved && mode === "usage" && (
         <div className="toast">
           <span>✓</span>
           ตรวจสอบฟอร์มเรียบร้อยแล้ว
