@@ -26,6 +26,8 @@ export function Header({ onMenuClick, user }: HeaderProps) {
   const pathname = usePathname();
   const title = pathname.startsWith("/admin/users")
     ? "ผู้ใช้งานระบบ"
+    : pathname.startsWith("/products")
+      ? "ภาพรวม Stock"
     : pageTitles[pathname] ?? "HD Stock Platform";
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);

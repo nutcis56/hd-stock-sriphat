@@ -1,6 +1,8 @@
 "use client";
 
 import { Icon } from "@/components/layout/icon";
+import { deleteProduct } from "@/lib/actions/products";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
@@ -19,15 +21,29 @@ export type ProductListItem = {
 export default function ProductListClient({
   products,
   successToast,
+  canManage,
 }: {
   products: ProductListItem[];
-  successToast?: "receive" | "transfer" | "usage";
+  successToast?: "receive" | "transfer" | "usage" | "product-created" | "product-updated";
+  canManage: boolean;
 }) {
   const router = useRouter();
-  const [successToastOpen, setSuccessToastOpen] = useState(Boolean(successToast));
+  const [toast, setToast] = useState<{ tone: "success" | "error"; message: string } | null>(() => {
+    if (!successToast) return null;
+    const messages = {
+      receive: "รับสินค้าเข้าเรียบร้อยแล้ว",
+      transfer: "โอนสินค้าเสร็จสิ้น",
+      usage: "ตัดใช้สินค้าจากศรีพัฒน์เรียบร้อยแล้ว",
+      "product-created": "เพิ่มรายการสินค้าเรียบร้อยแล้ว",
+      "product-updated": "แก้ไขข้อมูลสินค้าเรียบร้อยแล้ว",
+    };
+    return { tone: "success", message: messages[successToast] };
+  });
+  const [deleteTarget, setDeleteTarget] = useState<ProductListItem | null>(null);
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("ALL");
-  const [isPending, startTransition] = useTransition();
+  const [refreshPending, startRefreshTransition] = useTransition();
+  const [deletePending, startDeleteTransition] = useTransition();
   const number = useMemo(() => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }), []);
   const date = useMemo(() => new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }), []);
 
@@ -35,7 +51,7 @@ export default function ProductListClient({
     if (!successToast) return;
 
     window.history.replaceState(window.history.state, "", "/products");
-    const timer = window.setTimeout(() => setSuccessToastOpen(false), 4000);
+    const timer = window.setTimeout(() => setToast(null), 4000);
     return () => window.clearTimeout(timer);
   }, [successToast]);
 
@@ -55,25 +71,30 @@ export default function ProductListClient({
   );
 
   function refresh() {
-    startTransition(() => router.refresh());
+    startRefreshTransition(() => router.refresh());
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    const sku = deleteTarget.sku;
+    startDeleteTransition(async () => {
+      const result = await deleteProduct(sku);
+      setDeleteTarget(null);
+      setToast({ tone: result.status, message: result.message });
+      if (result.status === "success") router.refresh();
+    });
   }
 
   return (
     <section className="product-page">
-      {successToastOpen && (
-        <div className="toast toast-success" role="status" aria-live="polite">
-          <span aria-hidden="true">✓</span>
-          <strong>
-            {successToast === "transfer"
-              ? "โอนสินค้าเสร็จสิ้น"
-              : successToast === "usage"
-                ? "ตัดใช้สินค้าจากศรีพัฒน์เรียบร้อยแล้ว"
-                : "รับสินค้าเข้าเรียบร้อยแล้ว"}
-          </strong>
+      {toast && (
+        <div className={`toast products-toast toast-${toast.tone}`} role="status" aria-live="polite">
+          <span aria-hidden="true">{toast.tone === "success" ? "✓" : "!"}</span>
+          <strong>{toast.message}</strong>
           <button
             type="button"
             aria-label="ปิดข้อความแจ้งเตือน"
-            onClick={() => setSuccessToastOpen(false)}
+            onClick={() => setToast(null)}
           >
             ×
           </button>
@@ -82,13 +103,21 @@ export default function ProductListClient({
       <div className="content-heading">
         <div>
           <span className="eyebrow">INVENTORY MANAGEMENT</span>
-          <h2></h2>
-          <p></p>
+          <h2>ภาพรวมสินค้า</h2>
+          <p>ตรวจสอบยอดคงเหลือและจัดการข้อมูลสินค้าในระบบ</p>
         </div>
-        <button className="refresh-button" type="button" onClick={refresh} disabled={isPending}>
-          <Icon path="M20 6v5h-5M4 18v-5h5M6.1 9A7 7 0 0 1 18 6l2 5M4 13l2 5a7 7 0 0 0 11.9-3" />
-          <span>{isPending ? "กำลังอัปเดต..." : "รีเฟรชข้อมูล"}</span>
-        </button>
+        <div className="product-heading-actions">
+          {canManage && (
+            <Link className="products-add-button" href="/products/new">
+              <Icon path="M12 5v14M5 12h14" />
+              <span>เพิ่มรายการสินค้า</span>
+            </Link>
+          )}
+          <button className="refresh-button" type="button" onClick={refresh} disabled={refreshPending}>
+            <Icon path="M20 6v5h-5M4 18v-5h5M6.1 9A7 7 0 0 1 18 6l2 5M4 13l2 5a7 7 0 0 0 11.9-3" />
+            <span>{refreshPending ? "กำลังอัปเดต..." : "รีเฟรชข้อมูล"}</span>
+          </button>
+        </div>
       </div>
 
       <div className="stats-grid">
@@ -120,7 +149,7 @@ export default function ProductListClient({
         </div>
         <div className="table-scroll">
           <table>
-            <thead><tr><th>สินค้า</th><th>หน่วย</th><th className="right">บรรจุ/กล่อง</th><th className="right">พฤกพลัง</th><th className="right">ศรีพัฒน์</th><th className="right">จุดเตือน</th><th>สถานะ</th><th>อัปเดต</th></tr></thead>
+            <thead><tr><th>สินค้า</th><th>หน่วย</th><th className="right">บรรจุ/กล่อง</th><th className="right">พฤกพลัง</th><th className="right">ศรีพัฒน์</th><th className="right">จุดเตือน</th><th>สถานะ</th><th>อัปเดต</th>{canManage && <th className="right">จัดการ</th>}</tr></thead>
             <tbody>{filtered.map((product) => {
               const hasAlert = product.reorderPoint > 0 && product.stockSri <= product.reorderPoint;
               return (
@@ -133,6 +162,18 @@ export default function ProductListClient({
                   <td className="right muted-number">{number.format(product.reorderPoint)}</td>
                   <td><span className={`status-pill ${hasAlert ? "low" : "enough"}`}><i />{hasAlert ? "ควรตรวจสอบ" : "เพียงพอ"}</span></td>
                   <td><span className="updated">{date.format(new Date(product.updatedAt))}</span></td>
+                  {canManage && (
+                    <td>
+                      <div className="product-manage-actions">
+                        <Link href={`/products/${encodeURIComponent(product.sku)}/edit`} aria-label={`แก้ไข ${product.name}`} title="แก้ไข">
+                          <Icon path="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4L16.5 3.5Z" />
+                        </Link>
+                        <button type="button" onClick={() => setDeleteTarget(product)} aria-label={`ลบ ${product.name}`} title="ลบ">
+                          <Icon path="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 11v5m4-5v5" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               );
             })}</tbody>
@@ -140,6 +181,23 @@ export default function ProductListClient({
           {filtered.length === 0 && <div className="empty-state">ไม่พบรายการที่ค้นหา</div>}
         </div>
       </article>
+      {deleteTarget && (
+        <div className="confirm-overlay" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !deletePending) setDeleteTarget(null);
+        }}>
+          <div className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-product-title">
+            <span className="confirm-icon" aria-hidden="true">
+              <Icon path="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 11v5m4-5v5" />
+            </span>
+            <h3 id="delete-product-title">ยืนยันการลบสินค้า</h3>
+            <p>ต้องการลบ <strong>{deleteTarget.name}</strong> (SKU {deleteTarget.sku}) ออกจากรายการใช้งานหรือไม่</p>
+            <div className="confirm-actions">
+              <button className="cancel" type="button" disabled={deletePending} onClick={() => setDeleteTarget(null)}>ยกเลิก</button>
+              <button className="danger" type="button" disabled={deletePending} onClick={confirmDelete}>{deletePending ? "กำลังลบ..." : "ยืนยันลบ"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
