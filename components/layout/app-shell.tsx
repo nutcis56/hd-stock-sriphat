@@ -6,7 +6,15 @@ import { Footer } from "./footer";
 import { Header } from "./header";
 import { Menu } from "./menu";
 
-export function AppShell({ children }: { children: ReactNode }) {
+type AppShellProps = {
+  children: ReactNode;
+  user: {
+    displayName: string;
+    position: string | null;
+  } | null;
+};
+
+export function AppShell({ children, user }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
 
@@ -17,7 +25,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Menu open={menuOpen} onNavigate={() => setMenuOpen(false)} />
       {menuOpen && <button className="sidebar-overlay" type="button" aria-label="ปิดเมนู" onClick={() => setMenuOpen(false)} />}
       <div className="admin-main">
-        <Header onMenuClick={() => setMenuOpen(true)} />
+        <Header onMenuClick={() => setMenuOpen(true)} user={user} />
         <main className="admin-content">{children}</main>
         <Footer />
       </div>

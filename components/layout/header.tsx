@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { Icon } from "./icon";
 
@@ -12,9 +14,52 @@ const pageTitles: Record<string, string> = {
   "/transactions": "ประวัติรายการ",
 };
 
-export function Header({ onMenuClick }: { onMenuClick: () => void }) {
+type HeaderProps = {
+  onMenuClick: () => void;
+  user: {
+    displayName: string;
+    position: string | null;
+  } | null;
+};
+
+export function Header({ onMenuClick, user }: HeaderProps) {
   const pathname = usePathname();
   const title = pageTitles[pathname] ?? "HD Stock Platform";
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const displayName = user?.displayName || "ผู้ใช้งานระบบ";
+  const initials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0))
+    .join("")
+    .toUpperCase();
+
+  useEffect(() => {
+    function closeUserMenu(event: PointerEvent) {
+      if (!userMenuRef.current?.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setUserMenuOpen(false);
+    }
+
+    document.addEventListener("pointerdown", closeUserMenu);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeUserMenu);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    await signOut({ redirectTo: "/login" });
+  }
 
   return (
     <header className="admin-header">
@@ -28,8 +73,8 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
           <Icon path="M4 6h16M4 12h16M4 18h16" />
         </button>
         <div>
-          <span></span>
-          <h1></h1>
+          <span>ระบบบริหารคลังเวชภัณฑ์</span>
+          <h1>{title}</h1>
         </div>
       </div>
 
@@ -40,8 +85,38 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
             <small></small>
           </div>
         </div>
-        <div className="user-avatar" aria-label="ผู้ใช้งานระบบ">
-          HD
+        <div className="user-menu" ref={userMenuRef}>
+          <button
+            className="user-menu-trigger"
+            type="button"
+            aria-label={`เมนูผู้ใช้งาน ${displayName}`}
+            aria-expanded={userMenuOpen}
+            aria-haspopup="menu"
+            onClick={() => setUserMenuOpen((open) => !open)}
+          >
+            <span className="user-avatar" aria-hidden="true">
+              {initials || "HD"}
+            </span>
+          </button>
+
+          {userMenuOpen && (
+            <div className="user-dropdown" role="menu">
+              <span className="user-dropdown-arrow" aria-hidden="true" />
+              <div className="user-dropdown-profile">
+                <strong>{displayName}</strong>
+                <small>{user?.position || "ผู้ใช้งานระบบ"}</small>
+              </div>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={signingOut}
+                onClick={handleSignOut}
+              >
+                <Icon path="M12 2v10M18.36 5.64a9 9 0 1 1-12.73 0" />
+                {signingOut ? "กำลังลงชื่อออก..." : "ลงชื่อออก"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
