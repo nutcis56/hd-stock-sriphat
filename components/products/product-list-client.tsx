@@ -49,6 +49,7 @@ export default function ProductListClient({
   const [actionTarget, setActionTarget] = useState<ProductActionTarget | null>(null);
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("ALL");
+  const [status, setStatus] = useState("ALL");
   const [refreshPending, startRefreshTransition] = useTransition();
   const [deletePending, startDeleteTransition] = useTransition();
   const number = useMemo(() => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }), []);
@@ -92,7 +93,9 @@ export default function ProductListClient({
   const filtered = products.filter((product) => {
     const matchesSearch = `${product.sku} ${product.name}`.toLowerCase().includes(query.toLowerCase().trim());
     const matchesLocation = location === "ALL" || (location === "PPK" ? product.stockPpk > 0 : product.stockSri > 0);
-    return matchesSearch && matchesLocation;
+    const hasAlert = product.reorderPoint > 0 && product.stockSri <= product.reorderPoint;
+    const matchesStatus = status === "ALL" || (status === "LOW" ? hasAlert : !hasAlert);
+    return matchesSearch && matchesLocation && matchesStatus;
   });
 
   const totals = products.reduce(
@@ -196,6 +199,14 @@ export default function ProductListClient({
               <option value="SRI">ศรีพัฒน์</option>
             </select>
           </label>
+          <label className="filter-field">
+            <span>สถานะ</span>
+            <select value={status} onChange={(event) => setStatus(event.target.value)}>
+              <option value="ALL">ทุกสถานะ</option>
+              <option value="LOW">ควรตรวจสอบ</option>
+              <option value="ENOUGH">เพียงพอ</option>
+            </select>
+          </label>
         </div>
         <div className="table-scroll">
           <table>
@@ -242,7 +253,7 @@ export default function ProductListClient({
               );
             })}</tbody>
           </table>
-          {filtered.length === 0 && <div className="empty-state">ไม่พบรายการที่ค้นหา</div>}
+          {filtered.length === 0 && <div className="empty-state">ไม่พบรายการที่ตรงกับตัวกรอง</div>}
         </div>
       </article>
       {actionTarget && (

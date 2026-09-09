@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import prisma from "@/lib/prisma";
 
-const MAX_FAILED_LOGINS = 5;
+const MAX_FAILED_LOGINS = 10;
 const LOCK_DURATION_MS = 15 * 60 * 1000;
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
