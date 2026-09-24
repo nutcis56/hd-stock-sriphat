@@ -13,7 +13,6 @@ export type ProductListItem = {
   packSize: number;
   stockPpk: number;
   stockSri: number;
-  totalUsedSri: number;
   reorderPoint: number;
   sourceNote: string | null;
   updatedAt: string;
@@ -29,10 +28,12 @@ export default function ProductListClient({
   products,
   successToast,
   canManage,
+  currentMonth,
 }: {
   products: ProductListItem[];
   successToast?: "receive" | "transfer" | "usage" | "product-created" | "product-updated";
   canManage: boolean;
+  currentMonth: string;
 }) {
   const router = useRouter();
   const [toast, setToast] = useState<{ tone: "success" | "error"; message: string } | null>(() => {
@@ -129,7 +130,7 @@ export default function ProductListClient({
       return;
     }
     const rect = button.getBoundingClientRect();
-    const menuHeight = 190;
+    const menuHeight = 245;
     setActionTarget({
       product,
       top: rect.bottom + menuHeight > window.innerHeight
@@ -211,7 +212,7 @@ export default function ProductListClient({
         </div>
         <div className="table-scroll">
           <table>
-            <thead><tr><th>สินค้า</th><th>หน่วย</th><th className="right">บรรจุ/กล่อง</th><th className="right">พฤกพลัง</th><th className="right">ศรีพัฒน์</th><th className="right">ยอดรวมตัดใช้ศรีพัฒน์</th><th className="right">จุดเตือน</th><th>สถานะ</th><th>อัปเดต</th><th className="right">ทำรายการ</th>{canManage && <th className="right">จัดการ</th>}</tr></thead>
+            <thead><tr><th>สินค้า</th><th>หน่วย</th><th className="right">บรรจุ/กล่อง</th><th className="right">พฤกพลัง</th><th className="right">ศรีพัฒน์</th><th className="right">จุดเตือน</th><th>สถานะ</th><th>อัปเดต</th><th className="right">ทำรายการ</th>{canManage && <th className="right">จัดการ</th>}</tr></thead>
             <tbody>{filtered.map((product) => {
               const hasAlert = product.reorderPoint > 0 && product.stockSri <= product.reorderPoint;
               return (
@@ -221,7 +222,6 @@ export default function ProductListClient({
                   <td className="right muted-number">{number.format(product.packSize)}</td>
                   <td className="right stock-number">{number.format(product.stockPpk)}</td>
                   <td className={`right stock-number ${hasAlert ? "danger-text" : ""}`}>{number.format(product.stockSri)}</td>
-                  <td className="right muted-number">{number.format(product.totalUsedSri)}</td>
                   <td className="right muted-number">{number.format(product.reorderPoint)}</td>
                   <td><span className={`status-pill ${hasAlert ? "low" : "enough"}`}><i />{hasAlert ? "ควรตรวจสอบ" : "เพียงพอ"}</span></td>
                   <td><span className="updated">{date.format(new Date(product.updatedAt))}</span></td>
@@ -287,6 +287,10 @@ export default function ProductListClient({
             <Link role="menuitem" href={`/usage?product=${encodeURIComponent(actionTarget.product.sku)}`}>
               <Icon path="M4 7h16M7 7l1 13h8l1-13M9 4h6M10 11v5m4-5v5" />
               <span><strong>ตัดใช้สินค้า</strong><small>ตัดยอดจากศรีพัฒน์</small></span>
+            </Link>
+            <Link role="menuitem" href={`/transactions?query=${encodeURIComponent(actionTarget.product.sku)}&type=USE_SRI&period=month&month=${currentMonth}`}>
+              <Icon path="M4 5h16M4 10h10M4 15h10M4 20h6m6-2 2 2 4-5" />
+              <span><strong>ประวัติการตัดใช้ศรีพัฒน์</strong><small>ดูรายการของสินค้านี้</small></span>
             </Link>
             <button className="product-action-cancel" type="button" onClick={() => setActionTarget(null)}>ยกเลิก</button>
           </nav>

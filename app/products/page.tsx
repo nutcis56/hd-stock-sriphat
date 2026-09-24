@@ -4,6 +4,7 @@ import ProductListClient, {
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { currentBangkokMonth } from "@/lib/transaction-date-range";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +21,6 @@ export default async function ProductPage({
     orderBy: [{ name: "asc" }, { sku: "asc" }],
   });
 
-  const usageTotals = await prisma.transaction.groupBy({
-    by: ["productSku"],
-    where: { type: "USE_SRI", productSku: { in: records.map((product) => product.sku) } },
-    _sum: { quantity: true },
-  });
-  const usageBySku = new Map(usageTotals.map((row) => [row.productSku, row._sum.quantity?.toNumber() ?? 0]));
-
   const products: ProductListItem[] = records.map((product) => ({
     sku: product.sku,
     name: product.name,
@@ -34,7 +28,6 @@ export default async function ProductPage({
     packSize: Number(product.packSize),
     stockPpk: Number(product.stockPpk),
     stockSri: Number(product.stockSri),
-    totalUsedSri: usageBySku.get(product.sku) ?? 0,
     reorderPoint: Number(product.reorderPoint),
     sourceNote: product.sourceNote,
     updatedAt: product.updatedAt.toISOString(),
@@ -44,6 +37,7 @@ export default async function ProductPage({
     <ProductListClient
       key={toast ?? "products"}
       products={products}
+      currentMonth={currentBangkokMonth()}
       canManage={session.user.role === "ADMIN"}
       successToast={
         toast === "receive-success"

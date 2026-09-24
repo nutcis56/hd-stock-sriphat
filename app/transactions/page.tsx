@@ -2,10 +2,12 @@ import Link from "next/link";
 import TransactionToolbarClient from "@/components/transactions/transaction-toolbar-client";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { TransactionType, type Prisma } from "@/app/generated/prisma/client";
 import {
   currentBangkokMonth,
   parseTransactionDateRange,
   parseTransactionMonth,
+  parseTransactionYear,
 } from "@/lib/transaction-date-range";
 import { redirect } from "next/navigation";
 
@@ -23,25 +25,46 @@ const transactionTypeLabel: Record<string, string> = {
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ start?: string; end?: string; page?: string }>;
+  searchParams: Promise<{ start?: string; end?: string; page?: string; query?: string; type?: string; period?: string; month?: string; year?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   const query = await searchParams;
-  const defaultRange = parseTransactionMonth(currentBangkokMonth())!;
-  const selectedRange = parseTransactionDateRange(
-    query.start ?? "",
-    query.end ?? "",
-  );
-  const startValue = selectedRange ? query.start! : defaultRange.startValue;
-  const endValue = selectedRange ? query.end! : defaultRange.endValue;
-  const range = selectedRange ?? defaultRange;
+  const currentMonth = currentBangkokMonth();
+  const defaultMonthRange = parseTransactionMonth(currentMonth)!;
+  const currentYear = currentMonth.slice(0, 4);
+  const legacyCustomRange = !query.period && query.start && query.end;
+  const requestedPeriod = query.period === "year" || query.period === "custom" || query.period === "month"
+    ? query.period
+    : legacyCustomRange ? "custom" : "month";
+  const monthRange = parseTransactionMonth(query.month ?? currentMonth);
+  const selectedMonth = monthRange ? query.month ?? currentMonth : currentMonth;
+  const yearRange = parseTransactionYear(query.year ?? currentYear);
+  const selectedYear = yearRange ? query.year ?? currentYear : currentYear;
+  const customRange = requestedPeriod === "custom"
+    ? parseTransactionDateRange(query.start ?? "", query.end ?? "")
+    : null;
+  const appliedPeriod = requestedPeriod === "custom" && !customRange ? "month" : requestedPeriod;
+  const range = appliedPeriod === "year"
+    ? yearRange ?? parseTransactionYear(currentYear)!
+    : appliedPeriod === "custom"
+      ? customRange!
+      : monthRange ?? defaultMonthRange;
+  const startValue = range.startValue;
+  const endValue = range.endValue;
   const requestedPage = Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1);
+  const searchTerm = query.query?.trim() ?? "";
+  const selectedType = Object.values(TransactionType).find((type) => type === query.type);
   const where = {
     createdAt: { gte: range.start, lt: range.endExclusive },
-  };
-  const [total, transactions] = await prisma.$transaction([
+    ...(selectedType ? { type: selectedType } : {}),
+    ...(searchTerm ? { product: { OR: [
+      { name: { contains: searchTerm, mode: "insensitive" as const } },
+      { sku: { contains: searchTerm, mode: "insensitive" as const } },
+    ] } } : {}),
+  } satisfies Prisma.TransactionWhereInput;
+  const [total, transactions, searchQuantity, searchedProducts] = await Promise.all([
     prisma.transaction.count({ where }),
     prisma.transaction.findMany({
       where,
@@ -52,11 +75,23 @@ export default async function TransactionsPage({
         product: { select: { name: true, unit: true } },
       },
     }),
+    searchTerm ? prisma.transaction.aggregate({ where, _sum: { quantity: true } }) : Promise.resolve(null),
+    searchTerm
+      ? prisma.product.findMany({
+          where: { transactions: { some: where } },
+          select: { unit: true },
+          distinct: ["unit"],
+        })
+      : Promise.resolve([]),
   ]);
+  const quantityTotal = searchQuantity?._sum.quantity?.toNumber() ?? 0;
+  const quantityUnit = searchedProducts.length === 1
+    ? searchedProducts[0].unit
+    : searchedProducts.length > 1 ? "หลายหน่วย" : "";
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   if (requestedPage > totalPages && total > 0) {
     redirect(
-      `/transactions?start=${startValue}&end=${endValue}&page=${totalPages}`,
+      `/transactions?${new URLSearchParams({ period: appliedPeriod, ...(appliedPeriod === "month" ? { month: selectedMonth } : {}), ...(appliedPeriod === "year" ? { year: selectedYear } : {}), ...(appliedPeriod === "custom" ? { start: startValue, end: endValue } : {}), page: String(totalPages), ...(searchTerm ? { query: searchTerm } : {}), ...(selectedType ? { type: selectedType } : {}) })}`,
     );
   }
 
@@ -87,6 +122,11 @@ export default async function TransactionsPage({
       <TransactionToolbarClient
         appliedStart={startValue}
         appliedEnd={endValue}
+        appliedPeriod={appliedPeriod}
+        appliedMonth={selectedMonth}
+        appliedYear={selectedYear}
+        appliedQuery={searchTerm}
+        appliedType={selectedType ?? ""}
         canDelete={session.user.username.toLowerCase() === "admin"}
       />
 
@@ -98,7 +138,7 @@ export default async function TransactionsPage({
           </div>
           <span className="item-count">{number.format(total)} รายการ</span>
         </div>
-        {transactions.length === 0 ? (
+        {transactions.length === 0 && !searchTerm ? (
           <div className="empty-history">
             <h3>ไม่พบรายการในช่วงวันที่นี้</h3>
             <p>ลองปรับวันที่เริ่มต้นและวันที่สิ้นสุด แล้วค้นหาอีกครั้ง</p>
@@ -147,8 +187,17 @@ export default async function TransactionsPage({
                   </tr>
                 ))}
               </tbody>
+              {searchTerm && <tfoot><tr>
+                <th colSpan={3}>ยอดรวมจากผลการค้นหา ({number.format(total)} รายการ)</th>
+                <th className="right">{number.format(quantityTotal)} {quantityUnit}</th>
+                <td colSpan={3}></td>
+              </tr></tfoot>}
             </table>
           </div>
+        )}
+
+        {transactions.length === 0 && searchTerm && (
+          <div className="empty-history"><h3>ไม่พบรายการที่ค้นหา</h3></div>
         )}
 
         {totalPages > 1 && (
@@ -157,7 +206,7 @@ export default async function TransactionsPage({
               className={requestedPage <= 1 ? "disabled" : ""}
               href={
                 requestedPage > 1
-                  ? `/transactions?start=${startValue}&end=${endValue}&page=${requestedPage - 1}`
+                  ? `/transactions?${new URLSearchParams({ period: appliedPeriod, ...(appliedPeriod === "month" ? { month: selectedMonth } : {}), ...(appliedPeriod === "year" ? { year: selectedYear } : {}), ...(appliedPeriod === "custom" ? { start: startValue, end: endValue } : {}), page: String(requestedPage - 1), ...(searchTerm ? { query: searchTerm } : {}), ...(selectedType ? { type: selectedType } : {}) })}`
                   : "#"
               }
               aria-disabled={requestedPage <= 1}
@@ -171,7 +220,7 @@ export default async function TransactionsPage({
               className={requestedPage >= totalPages ? "disabled" : ""}
               href={
                 requestedPage < totalPages
-                  ? `/transactions?start=${startValue}&end=${endValue}&page=${requestedPage + 1}`
+                  ? `/transactions?${new URLSearchParams({ period: appliedPeriod, ...(appliedPeriod === "month" ? { month: selectedMonth } : {}), ...(appliedPeriod === "year" ? { year: selectedYear } : {}), ...(appliedPeriod === "custom" ? { start: startValue, end: endValue } : {}), page: String(requestedPage + 1), ...(searchTerm ? { query: searchTerm } : {}), ...(selectedType ? { type: selectedType } : {}) })}`
                   : "#"
               }
               aria-disabled={requestedPage >= totalPages}

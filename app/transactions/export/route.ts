@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
 import type { NextRequest } from "next/server";
-import type { Prisma } from "@/app/generated/prisma/client";
+import { TransactionType, type Prisma } from "@/app/generated/prisma/client";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { parseTransactionDateRange } from "@/lib/transaction-date-range";
@@ -20,13 +20,13 @@ type ExportRow = Prisma.TransactionGetPayload<{
   include: { product: { select: { name: true; unit: true } } };
 }>;
 
-async function loadTransactions(start: Date, endExclusive: Date) {
+async function loadTransactions(where: Prisma.TransactionWhereInput) {
   const result: ExportRow[] = [];
   let cursor: string | undefined;
 
   while (true) {
     const batch = await prisma.transaction.findMany({
-      where: { createdAt: { gte: start, lt: endExclusive } },
+      where,
       take: 5000,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -87,7 +87,29 @@ export async function GET(request: NextRequest) {
     return new Response("Invalid export parameters", { status: 400 });
   }
 
-  const transactions = await loadTransactions(range.start, range.endExclusive);
+  const searchTerm = request.nextUrl.searchParams.get("query")?.trim() ?? "";
+  const requestedType = request.nextUrl.searchParams.get("type");
+  const selectedType = Object.values(TransactionType).find((type) => type === requestedType);
+  const where = {
+    createdAt: { gte: range.start, lt: range.endExclusive },
+    ...(selectedType ? { type: selectedType } : {}),
+    ...(searchTerm ? { product: { OR: [
+      { name: { contains: searchTerm, mode: "insensitive" as const } },
+      { sku: { contains: searchTerm, mode: "insensitive" as const } },
+    ] } } : {}),
+  } satisfies Prisma.TransactionWhereInput;
+
+  const [transactions, quantityAggregate] = await Promise.all([
+    loadTransactions(where),
+    prisma.transaction.aggregate({ where, _sum: { quantity: true } }),
+  ]);
+  const quantityTotal = quantityAggregate._sum.quantity?.toNumber() ?? 0;
+  const units = [...new Set(transactions.map((transaction) => transaction.product.unit))];
+  const totalUnit = units.length === 1 ? units[0] : units.length > 1 ? "หลายหน่วย" : "";
+  const totalValues: (string | number)[] = [
+    "", "", "", "", `ยอดรวม (${transactions.length} รายการ)`, quantityTotal,
+    totalUnit, "", "", "", "", "", "", "", "",
+  ];
   const headers = [
     "Transaction ID",
     "วันเวลา",
@@ -108,7 +130,7 @@ export async function GET(request: NextRequest) {
   const filename = `transactions_${startValue}_${endValue}`;
 
   if (format === "csv") {
-    const rows = [headers, ...transactions.map(exportValues)];
+    const rows = [headers, ...transactions.map(exportValues), totalValues];
     const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
     return new Response(csv, {
       headers: {
@@ -127,6 +149,10 @@ export async function GET(request: NextRequest) {
   });
   worksheet.addRow(headers);
   transactions.forEach((transaction) => worksheet.addRow(exportValues(transaction)));
+  const totalRow = worksheet.addRow(totalValues);
+  totalRow.font = { bold: true, color: { argb: "FF332B39" } };
+  totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF7F3FA" } };
+  totalRow.border = { top: { style: "thin", color: { argb: "FFDDD5E2" } } };
   worksheet.autoFilter = { from: "A1", to: "O1" };
   worksheet.columns = [
     { width: 28 }, { width: 24 }, { width: 19 }, { width: 16 }, { width: 32 },

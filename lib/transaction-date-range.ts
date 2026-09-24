@@ -37,6 +37,8 @@ export function parseTransactionDateRange(startValue: string, endValue: string) 
   return {
     start,
     endExclusive: new Date(endStart.getTime() + 24 * 60 * 60 * 1000),
+    startValue,
+    endValue,
   };
 }
 
@@ -61,6 +63,22 @@ export function parseTransactionMonth(monthValue: string) {
   };
 }
 
+export function parseTransactionYear(yearValue: string) {
+  if (!/^\d{4}$/.test(yearValue)) return null;
+  const year = Number(yearValue);
+  if (year < 2000 || year > 9998) return null;
+
+  const firstMonth = parseTransactionMonth(`${year}-01`);
+  const nextYear = parseTransactionMonth(`${year + 1}-01`);
+  if (!firstMonth || !nextYear) return null;
+
+  return {
+    start: firstMonth.start,
+    endExclusive: nextYear.start,
+    startValue: `${year}-01-01`,
+    endValue: `${year}-12-31`,
+  };
+}
 export function currentBangkokMonth() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Bangkok",
