@@ -20,6 +20,13 @@ export default async function ProductPage({
     orderBy: [{ name: "asc" }, { sku: "asc" }],
   });
 
+  const usageTotals = await prisma.transaction.groupBy({
+    by: ["productSku"],
+    where: { type: "USE_SRI", productSku: { in: records.map((product) => product.sku) } },
+    _sum: { quantity: true },
+  });
+  const usageBySku = new Map(usageTotals.map((row) => [row.productSku, row._sum.quantity?.toNumber() ?? 0]));
+
   const products: ProductListItem[] = records.map((product) => ({
     sku: product.sku,
     name: product.name,
@@ -27,6 +34,7 @@ export default async function ProductPage({
     packSize: Number(product.packSize),
     stockPpk: Number(product.stockPpk),
     stockSri: Number(product.stockSri),
+    totalUsedSri: usageBySku.get(product.sku) ?? 0,
     reorderPoint: Number(product.reorderPoint),
     sourceNote: product.sourceNote,
     updatedAt: product.updatedAt.toISOString(),

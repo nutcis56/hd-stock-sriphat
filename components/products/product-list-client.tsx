@@ -13,6 +13,7 @@ export type ProductListItem = {
   packSize: number;
   stockPpk: number;
   stockSri: number;
+  totalUsedSri: number;
   reorderPoint: number;
   sourceNote: string | null;
   updatedAt: string;
@@ -210,7 +211,7 @@ export default function ProductListClient({
         </div>
         <div className="table-scroll">
           <table>
-            <thead><tr><th>สินค้า</th><th>หน่วย</th><th className="right">บรรจุ/กล่อง</th><th className="right">พฤกพลัง</th><th className="right">ศรีพัฒน์</th><th className="right">จุดเตือน</th><th>สถานะ</th><th>อัปเดต</th><th className="right">ทำรายการ</th>{canManage && <th className="right">จัดการ</th>}</tr></thead>
+            <thead><tr><th>สินค้า</th><th>หน่วย</th><th className="right">บรรจุ/กล่อง</th><th className="right">พฤกพลัง</th><th className="right">ศรีพัฒน์</th><th className="right">ยอดรวมตัดใช้ศรีพัฒน์</th><th className="right">จุดเตือน</th><th>สถานะ</th><th>อัปเดต</th><th className="right">ทำรายการ</th>{canManage && <th className="right">จัดการ</th>}</tr></thead>
             <tbody>{filtered.map((product) => {
               const hasAlert = product.reorderPoint > 0 && product.stockSri <= product.reorderPoint;
               return (
@@ -220,6 +221,7 @@ export default function ProductListClient({
                   <td className="right muted-number">{number.format(product.packSize)}</td>
                   <td className="right stock-number">{number.format(product.stockPpk)}</td>
                   <td className={`right stock-number ${hasAlert ? "danger-text" : ""}`}>{number.format(product.stockSri)}</td>
+                  <td className="right muted-number">{number.format(product.totalUsedSri)}</td>
                   <td className="right muted-number">{number.format(product.reorderPoint)}</td>
                   <td><span className={`status-pill ${hasAlert ? "low" : "enough"}`}><i />{hasAlert ? "ควรตรวจสอบ" : "เพียงพอ"}</span></td>
                   <td><span className="updated">{date.format(new Date(product.updatedAt))}</span></td>
